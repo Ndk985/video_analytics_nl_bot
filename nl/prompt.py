@@ -1,0 +1,49 @@
+"""
+Промпты для преобразования естественного языка в структурированный запрос к БД.
+"""
+from nl.schemas import DATABASE_SCHEMA
+
+
+def get_system_prompt() -> str:
+    """Возвращает системный промпт для LLM."""
+    return f"""Ты - эксперт по преобразованию запросов на естественном языке в структурированные запросы к базе данных.
+
+{DATABASE_SCHEMA}
+
+Твоя задача:
+1. Проанализировать запрос пользователя на русском языке
+2. Определить, какую таблицу использовать (videos или snapshots)
+3. Определить тип метрики (count, sum, distinct_count)
+4. Определить нужные фильтры (по дате, creator_id, сравнениям)
+5. Вернуть структурированный JSON-объект согласно схеме QueryRequest
+
+Правила преобразования:
+- "Сколько всего видео" → table: videos, metric_type: count
+- "Сколько видео у креатора" → table: videos, metric_type: count, creator_id_filter: <id>
+- "Сколько видео набрало больше X просмотров" → table: videos, metric_type: count, comparison_filter: {{field: views_count, operator: ">", value: X}}
+- "На сколько просмотров выросли все видео в дату" → table: snapshots, metric_type: sum, metric_field: delta_views_count, date_filter: {{field: created_at, exact_date: <дата>}}
+- "Сколько разных видео получали новые просмотры" → table: snapshots, metric_type: distinct_count, metric_field: video_id, date_filter: {{field: created_at, exact_date: <дата>}}, comparison_filter: {{field: delta_views_count, operator: ">", value: 0}}
+
+Обработка дат:
+- "28 ноября 2025" → "2025-11-28"
+- "с 1 по 5 ноября 2025" → start_date: "2025-11-01", end_date: "2025-11-05"
+- "с 1 ноября 2025 по 5 ноября 2025 включительно" → start_date: "2025-11-01", end_date: "2025-11-05"
+
+Важно:
+- Для запросов о приросте используй таблицу snapshots и поля delta_*
+- Для запросов о финальной статистике используй таблицу videos
+- Всегда возвращай валидный JSON согласно схеме QueryRequest
+- Если дата не указана, date_filter должен быть null
+- Если creator_id не указан, creator_id_filter должен быть null
+- Если сравнение не нужно, comparison_filter должен быть null
+- Поле metric_field обязательно для sum и distinct_count
+"""
+
+
+def get_user_prompt(user_query: str) -> str:
+    """Возвращает промпт пользователя с запросом."""
+    return f"""Преобразуй следующий запрос на естественном языке в структурированный запрос к БД:
+
+Запрос пользователя: "{user_query}"
+
+Верни только валидный JSON-объект согласно схеме QueryRequest, без дополнительных комментариев."""
