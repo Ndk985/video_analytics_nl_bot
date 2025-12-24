@@ -3,6 +3,7 @@
 Использует DeepSeek API через OpenAI SDK.
 """
 import json
+import logging
 from typing import Optional
 from openai import AsyncOpenAI
 from pydantic import ValidationError
@@ -10,6 +11,8 @@ from pydantic import ValidationError
 from bot.config import DEEPSEEK_API_KEY, LLM_BASE_URL, LLM_MODEL
 from nl.schemas import QueryRequest
 from nl.prompt import get_system_prompt, get_user_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class NLParser:
@@ -41,38 +44,75 @@ class NLParser:
         Returns:
             QueryRequest или None в случае ошибки
         """
+        content = None
+        json_data = None
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": get_user_prompt(user_query)}
-                ],
-                temperature=0.1,  # Низкая температура для более детерминированных результатов
-                response_format={"type": "json_object"}  # Требуем JSON ответ
-            )
+            logger.info(f"Парсинг запроса: {user_query}")
+            
+            # Пробуем с response_format, если не поддерживается - уберем
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": get_user_prompt(user_query)}
+                    ],
+                    temperature=0.1,
+                    response_format={"type": "json_object"}
+                )
+            except Exception as format_error:
+                logger.warning(f"response_format не поддерживается, пробуем без него: {format_error}")
+                # Если response_format не поддерживается, пробуем без него
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": get_user_prompt(user_query)}
+                    ],
+                    temperature=0.1
+                )
 
             content = response.choices[0].message.content
+            logger.info(f"Ответ от LLM: {content}")
+            
             if not content:
+                logger.error("Пустой ответ от LLM")
                 return None
 
             # Парсим JSON ответ
             json_data = json.loads(content)
+            logger.info(f"Распарсенный JSON: {json_data}")
 
             # Валидируем через Pydantic
             query_request = QueryRequest(**json_data)
+            logger.info(f"Валидация успешна: {query_request}")
             return query_request
 
         except json.JSONDecodeError as e:
-            print(f"Ошибка парсинга JSON от LLM: {e}")
-            print(f"Ответ LLM: {content if 'content' in locals() else 'N/A'}")
+            logger.error(f"Ошибка парсинга JSON от LLM: {e}")
+            logger.error(f"Ответ LLM: {content}")
             return None
         except ValidationError as e:
-            print(f"Ошибка валидации QueryRequest: {e}")
-            print(f"JSON от LLM: {json_data if 'json_data' in locals() else 'N/A'}")
+            logger.error(f"Ошибка валидации QueryRequest: {e}")
+            logger.error(f"JSON от LLM: {json_data}")
             return None
         except Exception as e:
-            print(f"Ошибка при обращении к LLM API: {e}")
+            error_type = type(e).__name__
+            error_msg = str(e)
+            
+            # Специальная обработка ошибок API
+            if "APIStatusError" in error_type or "402" in error_msg or "Insufficient Balance" in error_msg:
+                logger.error(f"Недостаточно баланса на DeepSeek API: {error_msg}")
+                logger.error("Пожалуйста, пополните баланс на https://platform.deepseek.com")
+            elif "401" in error_msg or "Invalid API Key" in error_msg or "Unauthorized" in error_msg:
+                logger.error(f"Неверный API ключ DeepSeek: {error_msg}")
+            elif "429" in error_msg or "Rate limit" in error_msg:
+                logger.error(f"Превышен лимит запросов к DeepSeek API: {error_msg}")
+            else:
+                logger.error(f"Ошибка при обращении к LLM API: {error_type}: {error_msg}")
+                import traceback
+                logger.error(traceback.format_exc())
+            
             return None
 
 
