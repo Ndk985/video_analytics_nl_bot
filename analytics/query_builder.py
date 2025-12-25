@@ -19,7 +19,12 @@ class QueryBuilder:
         Returns:
             Кортеж (SQL запрос, список параметров)
         """
-        table_name = query.table.value
+        # Преобразуем enum в реальное имя таблицы в БД
+        table_name_map = {
+            "videos": "videos",
+            "snapshots": "video_snapshots"
+        }
+        table_name = table_name_map[query.table.value]
 
         # Определяем SELECT часть
         select_part = QueryBuilder._build_select(query)

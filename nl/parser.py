@@ -116,6 +116,11 @@ class NLParser:
             json_data = json.loads(content_clean)
             logger.info(f"Распарсенный JSON: {json_data}")
 
+            # Нормализуем название таблицы (LLM может вернуть "video_snapshots" вместо "snapshots")
+            if json_data.get("table") == "video_snapshots":
+                json_data["table"] = "snapshots"
+                logger.info("Нормализовано: video_snapshots → snapshots")
+
             # Валидируем через Pydantic
             query_request = QueryRequest(**json_data)
             logger.info(f"Валидация успешна: table={query_request.table.value}, metric_type={query_request.metric_type.value}, "
