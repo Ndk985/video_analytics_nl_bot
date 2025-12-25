@@ -120,6 +120,16 @@ class NLParser:
             if json_data.get("table") == "video_snapshots":
                 json_data["table"] = "snapshots"
                 logger.info("Нормализовано: video_snapshots → snapshots")
+            
+            # Нормализуем metric_field для подсчета уникальных дат
+            if json_data.get("metric_field"):
+                metric_field = json_data["metric_field"]
+                if "video_created_at" in metric_field and "date" in metric_field.lower():
+                    json_data["metric_field"] = "video_created_at_date"
+                    logger.info("Нормализовано: video_created_at::date → video_created_at_date")
+                elif "created_at" in metric_field and "date" in metric_field.lower():
+                    json_data["metric_field"] = "created_at_date"
+                    logger.info("Нормализовано: created_at::date → created_at_date")
 
             # Валидируем через Pydantic
             query_request = QueryRequest(**json_data)

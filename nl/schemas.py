@@ -31,6 +31,9 @@ class MetricField(str, Enum):
     DELTA_REPORTS = "delta_reports_count"
     VIDEO_ID = "video_id"
     CREATOR_ID = "creator_id"
+    # Специальные значения для подсчета уникальных дат
+    VIDEO_CREATED_AT_DATE = "video_created_at_date"  # Для COUNT(DISTINCT DATE(video_created_at))
+    CREATED_AT_DATE = "created_at_date"  # Для COUNT(DISTINCT DATE(created_at))
 
 
 class DateFilter(BaseModel):

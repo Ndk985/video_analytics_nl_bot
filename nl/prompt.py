@@ -27,6 +27,7 @@ def get_system_prompt() -> str:
 - "На сколько просмотров выросли все видео в дату" → table: "snapshots", metric_type: "sum", metric_field: "delta_views_count", date_filter: {{field: "created_at", exact_date: <дата>}}
 - "Сколько разных видео получали новые просмотры" → table: "snapshots", metric_type: "distinct_count", metric_field: "video_id", date_filter: {{field: "created_at", exact_date: <дата>}}, comparison_filter: {{field: "delta_views_count", operator: ">", value: 0}}
 - "Сколько замеров с отрицательным приростом просмотров" → table: "snapshots", metric_type: "count", comparison_filter: {{field: "delta_views_count", operator: "<", value: 0}}
+- "В скольких разных календарных днях креатор публиковал видео" → table: "videos", metric_type: "distinct_count", metric_field: "video_created_at_date", creator_id_filter: <id>, date_filter: {{field: "video_created_at", start_date: <начало>, end_date: <конец>}}
 
 Обработка дат:
 - "28 ноября 2025" → "2025-11-28"
@@ -46,6 +47,7 @@ def get_system_prompt() -> str:
 - Если сравнение не нужно, comparison_filter должен быть null
 - Поле metric_field обязательно для sum и distinct_count
 - При указании периода "с X по Y включительно" используй start_date и end_date
+- Для подсчета уникальных календарных дней используй metric_field: "video_created_at_date" (для таблицы videos) или "created_at_date" (для таблицы snapshots)
 """
 
 
