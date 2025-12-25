@@ -1,11 +1,14 @@
 """
 Исполнитель SQL запросов к базе данных.
 """
+import logging
 from typing import Optional
 
 from db.database import get_pool
 from analytics.query_builder import QueryBuilder
 from nl.schemas import QueryRequest
+
+logger = logging.getLogger(__name__)
 
 
 class QueryExecutor:
@@ -42,9 +45,11 @@ class QueryExecutor:
                 return int(result)
 
         except Exception as e:
-            print(f"Ошибка при выполнении SQL запроса: {e}")
+            logger.error(f"Ошибка при выполнении SQL запроса: {e}")
             if sql:
-                print(f"SQL: {sql}")
+                logger.debug(f"SQL: {sql}")
             if params:
-                print(f"Params: {params}")
+                logger.debug(f"Params: {params}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return None

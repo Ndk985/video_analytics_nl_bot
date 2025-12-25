@@ -11,7 +11,7 @@ DATABASE_URL = os.getenv(
 
 # LLM конфигурация (поддержка разных провайдеров)
 # Режим работы: "ollama" (локально), "deepseek", "openai" или другой
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek")  # По умолчанию DeepSeek
 
 # API ключи (нужны только для облачных провайдеров)
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -27,6 +27,11 @@ elif LLM_PROVIDER == "deepseek":
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
     LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
     LLM_API_KEY = DEEPSEEK_API_KEY
+    if not LLM_API_KEY:
+        raise ValueError(
+            "DEEPSEEK_API_KEY не установлен. "
+            "Установите переменную окружения DEEPSEEK_API_KEY в .env файле"
+        )
 elif LLM_PROVIDER == "openai":
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")

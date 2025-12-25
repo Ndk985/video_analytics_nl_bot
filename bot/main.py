@@ -10,13 +10,25 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+logger = logging.getLogger(__name__)
+
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
     dp.include_router(router)
 
-    await dp.start_polling(bot)
+    try:
+        logger.info("Бот запущен и готов к работе")
+        await dp.start_polling(bot)
+    except KeyboardInterrupt:
+        logger.info("Получен сигнал остановки")
+    except Exception as e:
+        logger.error(f"Критическая ошибка при работе бота: {e}", exc_info=True)
+    finally:
+        logger.info("Закрытие сессии бота...")
+        await bot.session.close()
+        logger.info("Бот остановлен")
 
 
 if __name__ == "__main__":

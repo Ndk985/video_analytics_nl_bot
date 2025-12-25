@@ -50,12 +50,12 @@ async def handle_message(message: Message):
 
     except ValueError as e:
         # Ошибка инициализации парсера (например, нет API ключа)
-        print(f"Ошибка инициализации: {e}")
+        logger.error(f"Ошибка инициализации парсера: {e}")
         await message.answer(
             "Ошибка конфигурации бота. Обратитесь к администратору."
         )
     except Exception as e:
-        print(f"Ошибка при обработке запроса: {e}")
+        logger.error(f"Неожиданная ошибка при обработке запроса: {e}", exc_info=True)
         await message.answer(
             "Произошла ошибка при обработке вашего запроса. Попробуйте позже."
         )
