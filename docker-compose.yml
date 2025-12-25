@@ -26,7 +26,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Для работы с локальной Ollama используем host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["python", "-m", "bot.main"]
+
+  # Опциональный сервис Ollama (раскомментируйте, если хотите запускать в Docker)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: video_analytics_ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   # Для запуска модели при старте:
+  #   # command: ["ollama", "serve"]
+  #   # После запуска выполните: docker exec video_analytics_ollama ollama pull llama3.2
 
 volumes:
   postgres_data:
+  # ollama_data:  # Раскомментируйте, если используете Ollama в Docker

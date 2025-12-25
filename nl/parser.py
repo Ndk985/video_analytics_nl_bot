@@ -1,6 +1,10 @@
 """
 Модуль для преобразования естественного языка в структурированные запросы к БД.
-Использует DeepSeek API через OpenAI SDK.
+Поддерживает разные LLM провайдеры через OpenAI-совместимый API:
+- Ollama (локально)
+- DeepSeek API
+- OpenAI API
+- Другие OpenAI-совместимые API
 """
 import json
 import logging
@@ -8,7 +12,7 @@ from typing import Optional
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
-from bot.config import DEEPSEEK_API_KEY, LLM_BASE_URL, LLM_MODEL
+from bot.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER
 from nl.schemas import QueryRequest
 from nl.prompt import get_system_prompt, get_user_prompt
 
@@ -18,20 +22,22 @@ logger = logging.getLogger(__name__)
 class NLParser:
     """Парсер естественного языка для преобразования запросов в структурированный формат."""
 
-    def __init__(self, api_key: str, base_url: str, model: str = "deepseek-chat"):
+    def __init__(self, api_key: str, base_url: str, model: str, provider: str = "ollama"):
         """
         Инициализация парсера.
 
         Args:
-            api_key: API ключ DeepSeek
-            base_url: Базовый URL API (по умолчанию DeepSeek)
-            model: Модель для использования (по умолчанию deepseek-chat)
+            api_key: API ключ (для Ollama можно любой, например "ollama")
+            base_url: Базовый URL API
+            model: Модель для использования
+            provider: Провайдер ("ollama", "deepseek", "openai" и т.д.)
         """
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url
         )
         self.model = model
+        self.provider = provider
         self.system_prompt = get_system_prompt()
 
     async def parse_query(self, user_query: str) -> Optional[QueryRequest]:
@@ -49,17 +55,31 @@ class NLParser:
         try:
             logger.info(f"Парсинг запроса: {user_query}")
             
+            # Для Ollama и некоторых других провайдеров response_format может не поддерживаться
             # Пробуем с response_format, если не поддерживается - уберем
+            use_json_format = self.provider not in ["ollama"]  # Ollama может не поддерживать
+            
             try:
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": self.system_prompt},
-                        {"role": "user", "content": get_user_prompt(user_query)}
-                    ],
-                    temperature=0.1,
-                    response_format={"type": "json_object"}
-                )
+                if use_json_format:
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": self.system_prompt},
+                            {"role": "user", "content": get_user_prompt(user_query)}
+                        ],
+                        temperature=0.1,
+                        response_format={"type": "json_object"}
+                    )
+                else:
+                    # Для Ollama пробуем без response_format, но просим JSON в промпте
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": self.system_prompt},
+                            {"role": "user", "content": get_user_prompt(user_query)}
+                        ],
+                        temperature=0.1
+                    )
             except Exception as format_error:
                 logger.warning(f"response_format не поддерживается, пробуем без него: {format_error}")
                 # Если response_format не поддерживается, пробуем без него
@@ -79,8 +99,21 @@ class NLParser:
                 logger.error("Пустой ответ от LLM")
                 return None
 
+            # Очищаем ответ от markdown разметки (для Ollama и других моделей)
+            content_clean = content.strip()
+            # Убираем markdown блоки ```json ... ```
+            if content_clean.startswith("```"):
+                # Находим начало и конец JSON
+                start = content_clean.find("{")
+                end = content_clean.rfind("}") + 1
+                if start != -1 and end > start:
+                    content_clean = content_clean[start:end]
+                else:
+                    # Если не нашли, пробуем убрать только обратные кавычки
+                    content_clean = content_clean.replace("```json", "").replace("```", "").strip()
+            
             # Парсим JSON ответ
-            json_data = json.loads(content)
+            json_data = json.loads(content_clean)
             logger.info(f"Распарсенный JSON: {json_data}")
 
             # Валидируем через Pydantic
@@ -124,11 +157,24 @@ def get_parser() -> NLParser:
     """Возвращает глобальный экземпляр парсера."""
     global _parser
     if _parser is None:
-        if not DEEPSEEK_API_KEY:
-            raise ValueError("DEEPSEEK_API_KEY не установлен в переменных окружения")
+        if not LLM_API_KEY and LLM_PROVIDER != "ollama":
+            raise ValueError(
+                f"LLM_API_KEY не установлен для провайдера {LLM_PROVIDER}. "
+                f"Установите переменную окружения или используйте LLM_PROVIDER=ollama"
+            )
+        
+        # Для Ollama ключ не обязателен, но SDK требует его наличие
+        api_key = LLM_API_KEY if LLM_API_KEY else "ollama"
+        
+        logger.info(
+            f"Инициализация парсера: провайдер={LLM_PROVIDER}, "
+            f"модель={LLM_MODEL}, base_url={LLM_BASE_URL}"
+        )
+        
         _parser = NLParser(
-            api_key=DEEPSEEK_API_KEY,
+            api_key=api_key,
             base_url=LLM_BASE_URL,
-            model=LLM_MODEL
+            model=LLM_MODEL,
+            provider=LLM_PROVIDER
         )
     return _parser
