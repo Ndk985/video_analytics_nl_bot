@@ -1,6 +1,7 @@
 """
 Построитель SQL запросов из структурированных запросов.
 """
+from datetime import date
 from nl.schemas import QueryRequest, MetricType
 
 
@@ -97,22 +98,29 @@ class QueryBuilder:
         if date_filter.exact_date:
             # Точная дата - используем DATE() для сравнения
             where = f"DATE({field}) = ${param_index}"
-            params.append(date_filter.exact_date)
+            # Преобразуем строку в объект date для asyncpg
+            date_obj = date.fromisoformat(date_filter.exact_date) if isinstance(date_filter.exact_date, str) else date_filter.exact_date
+            params.append(date_obj)
             param_index += 1
         elif date_filter.start_date and date_filter.end_date:
             # Диапазон дат
             where = f"DATE({field}) >= ${param_index} AND DATE({field}) <= ${param_index + 1}"
-            params.extend([date_filter.start_date, date_filter.end_date])
+            # Преобразуем строки в объекты date для asyncpg
+            start_date_obj = date.fromisoformat(date_filter.start_date) if isinstance(date_filter.start_date, str) else date_filter.start_date
+            end_date_obj = date.fromisoformat(date_filter.end_date) if isinstance(date_filter.end_date, str) else date_filter.end_date
+            params.extend([start_date_obj, end_date_obj])
             param_index += 2
         elif date_filter.start_date:
             # Только начальная дата
             where = f"DATE({field}) >= ${param_index}"
-            params.append(date_filter.start_date)
+            date_obj = date.fromisoformat(date_filter.start_date) if isinstance(date_filter.start_date, str) else date_filter.start_date
+            params.append(date_obj)
             param_index += 1
         elif date_filter.end_date:
             # Только конечная дата
             where = f"DATE({field}) <= ${param_index}"
-            params.append(date_filter.end_date)
+            date_obj = date.fromisoformat(date_filter.end_date) if isinstance(date_filter.end_date, str) else date_filter.end_date
+            params.append(date_obj)
             param_index += 1
         else:
             raise ValueError("date_filter должен содержать хотя бы одну дату")

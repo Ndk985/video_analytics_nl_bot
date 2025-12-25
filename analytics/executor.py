@@ -30,6 +30,8 @@ class QueryExecutor:
         try:
             # Строим SQL запрос
             sql, params = QueryBuilder.build_sql(query)
+            logger.debug(f"Сгенерированный SQL: {sql}")
+            logger.debug(f"Параметры SQL: {params}")
 
             # Получаем пул соединений
             pool = await get_pool()
@@ -37,6 +39,7 @@ class QueryExecutor:
             # Выполняем запрос
             async with pool.acquire() as conn:
                 result = await conn.fetchval(sql, *params)
+                logger.debug(f"Результат запроса: {result}")
 
                 # Преобразуем результат в int (может быть None, Decimal и т.д.)
                 if result is None:

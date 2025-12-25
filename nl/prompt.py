@@ -20,6 +20,7 @@ def get_system_prompt() -> str:
 Правила преобразования:
 - "Сколько всего видео" → table: videos, metric_type: count
 - "Сколько видео у креатора" → table: videos, metric_type: count, creator_id_filter: <id>
+- "Сколько видео опубликовал креатор с id X в период с Y по Z" → table: videos, metric_type: count, creator_id_filter: X, date_filter: {{field: video_created_at, start_date: Y, end_date: Z}}
 - "Сколько видео набрало больше X просмотров" → table: videos, metric_type: count, comparison_filter: {{field: views_count, operator: ">", value: X}}
 - "На сколько просмотров выросли все видео в дату" → table: snapshots, metric_type: sum, metric_field: delta_views_count, date_filter: {{field: created_at, exact_date: <дата>}}
 - "Сколько разных видео получали новые просмотры" → table: snapshots, metric_type: distinct_count, metric_field: video_id, date_filter: {{field: created_at, exact_date: <дата>}}, comparison_filter: {{field: delta_views_count, operator: ">", value: 0}}
@@ -32,11 +33,14 @@ def get_system_prompt() -> str:
 Важно:
 - Для запросов о приросте используй таблицу snapshots и поля delta_*
 - Для запросов о финальной статистике используй таблицу videos
+- Для запросов о публикации видео используй поле video_created_at в таблице videos
+- Для запросов о динамике используй поле created_at в таблице snapshots
 - Всегда возвращай валидный JSON согласно схеме QueryRequest
 - Если дата не указана, date_filter должен быть null
 - Если creator_id не указан, creator_id_filter должен быть null
 - Если сравнение не нужно, comparison_filter должен быть null
 - Поле metric_field обязательно для sum и distinct_count
+- При указании периода "с X по Y включительно" используй start_date и end_date
 """
 
 

@@ -118,7 +118,9 @@ class NLParser:
 
             # Валидируем через Pydantic
             query_request = QueryRequest(**json_data)
-            logger.info(f"Валидация успешна: {query_request}")
+            logger.info(f"Валидация успешна: table={query_request.table.value}, metric_type={query_request.metric_type.value}, "
+                       f"creator_id_filter={query_request.creator_id_filter}, "
+                       f"date_filter={query_request.date_filter}")
             return query_request
 
         except json.JSONDecodeError as e:
